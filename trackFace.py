@@ -1,94 +1,78 @@
-import cv2
-
-#Initialize a face cascade using the frontal face haar cascade provided
-#with the OpenCV2 library
-faceCascade = cv2.CascadeClassifier('/home/pi/opencv-3.2.0/data/haarcascades/haarcascade_frontalface_default.xml')
-
-# Initialize dlib tracker 
-
-
-
-
-#The desired output width and height
-OUTPUT_SIZE_WIDTH = 775  
-OUTPUT_SIZE_HEIGHT = 600
-
-#Open the first webcame device
-capture = cv2.VideoCapture(0)
-
-#Create two opencv named windows
-cv2.namedWindow("base-image", cv2.WINDOW_AUTOSIZE)  
-cv2.namedWindow("result-image", cv2.WINDOW_AUTOSIZE)
-
-#Position the windows next to eachother
-cv2.moveWindow("base-image",0,100)  
-cv2.moveWindow("result-image",400,100)
-
-#Start the window thread for the two windows we are using
-cv2.startWindowThread()
-
-rectangleColor = (0,165,255) 
-
-while 1:
-	#Retrieve the latest image from the webcam
-	rc,fullSizeBaseImage = capture.read()
-
-        #Resize the image to 320x240
-	baseImage = cv2.resize( fullSizeBaseImage, ( 320, 240))
-
-
-        #Check if a key was pressed and if it was Q, then destroy all
-        #opencv windows and exit the application
-	pressedKey = cv2.waitKey(2)  
-	if pressedKey == ord('Q'):  
-		cv2.destroyAllWindows()  
-		exit(0)
-
-        #Result image is the image we will show the user, which is a
-        #combination of the original image from the webcam and the
-        #overlayed rectangle for the largest face
-	resultImage = baseImage.copy()
-
-
-        #For the face detection, we need to make use of a gray colored
-        #image so we will convert the baseImage to a gray-based image
-	gray = cv2.cvtColor(baseImage, cv2.COLOR_BGR2GRAY)  
-        #Now use the haar cascade detector to find all faces in the image
-	faces = faceCascade.detectMultiScale(gray, 1.3, 5)
-
-
-        #For now, we are only interested in the 'largest' face, and we
-        #determine this based on the largest area of the found
-        #rectangle. First initialize the required variables to 0
-	maxArea = 0
-	x = 0
-	y = 0
-	w = 0
-	h = 0
-
-
-#Loop over all faces and check if the area for this face is
-#the largest so far
-	for (_x,_y,_w,_h) in faces:  
-		if  _w*_h > maxArea:
-	        	x = _x
-			y = _y
-			w = _w
-			h = _h
-			maxArea = w*h
-    #If one or more faces are found, draw a rectangle around the
-    #largest face present in the picture
-		if maxArea > 0 :
-			cv2.rectangle(resultImage,  (x-10, y-20),(x + w+10 , y + h+20),rectangleColor,2)
-#Since we want to show something larger on the screen than the
-#original 320x240, we resize the image again
-#
-#Note that it would also be possible to keep the large version
-#of the baseimage and make the result image a copy of this large
-#base image and use the scaling factor to draw the rectangle
-#at the right coordinates.
-	largeResult = cv2.resize(resultImage,(OUTPUT_SIZE_WIDTH,OUTPUT_SIZE_HEIGHT))
-
-#Finally, we want to show the images on the screen
-	cv2.imshow("base-image", baseImage)  
-	cv2.imshow("result-image", largeResult) 
+import dlib # dlib for accurate face detection
+import cv2 # opencv
+import imutils # helper functions from pyimagesearch.com
+ 
+# Grab video from your webcam
+stream = cv2.VideoCapture(0)
+ 
+# Face detector
+detector = dlib.get_frontal_face_detector()
+ 
+# Fancy box drawing function by Dan Masek
+def draw_border(img, pt1, pt2, color, thickness, r, d):
+    x1, y1 = pt1
+    x2, y2 = pt2
+ 
+    # Top left drawing
+    cv2.line(img, (x1 + r, y1), (x1 + r + d, y1), color, thickness)
+    cv2.line(img, (x1, y1 + r), (x1, y1 + r + d), color, thickness)
+    cv2.ellipse(img, (x1 + r, y1 + r), (r, r), 180, 0, 90, color, thickness)
+ 
+    # Top right drawing
+    cv2.line(img, (x2 - r, y1), (x2 - r - d, y1), color, thickness)
+    cv2.line(img, (x2, y1 + r), (x2, y1 + r + d), color, thickness)
+    cv2.ellipse(img, (x2 - r, y1 + r), (r, r), 270, 0, 90, color, thickness)
+ 
+    # Bottom left drawing
+    cv2.line(img, (x1 + r, y2), (x1 + r + d, y2), color, thickness)
+    cv2.line(img, (x1, y2 - r), (x1, y2 - r - d), color, thickness)
+    cv2.ellipse(img, (x1 + r, y2 - r), (r, r), 90, 0, 90, color, thickness)
+ 
+    # Bottom right drawing
+    cv2.line(img, (x2 - r, y2), (x2 - r - d, y2), color, thickness)
+    cv2.line(img, (x2, y2 - r), (x2, y2 - r - d), color, thickness)
+    cv2.ellipse(img, (x2 - r, y2 - r), (r, r), 0, 0, 90, color, thickness)
+ 
+while True:
+    # read frames from live web cam stream
+    (grabbed, frame) = stream.read()
+ 
+    # resize the frames to be smaller and switch to gray scale
+    frame = imutils.resize(frame, width=400)
+    frame = cv2.flip(frame,0)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+ 
+    # Make copies of the frame for transparency processing
+    overlay = frame.copy()
+    output = frame.copy()
+ 
+    # set transparency value
+    alpha  = 0.5
+ 
+    # detect faces in the gray scale frame
+    face_rects = detector(gray, 0)
+ 
+    # loop over the face detections
+    for i, d in enumerate(face_rects):
+        x1, y1, x2, y2, w, h = d.left(), d.top(), d.right() + 1, d.bottom() + 1, d.width(), d.height()
+ 
+        # draw a fancy border around the faces
+        draw_border(overlay, (x1, y1), (x2, y2), (162, 255, 0), 2, 10, 10)
+    faceCenter = ((x1+x2)/2, (y1+y2)/2)
+    faceWidth = (x2-x1)
+    print faceCenter,faceWidth
+    
+    # make semi-transparent bounding box
+    cv2.addWeighted(overlay, alpha, output, 1 - alpha, 0, output)
+ 
+    # show the frame
+    cv2.imshow("Face Detection", output)
+    key = cv2.waitKey(1) & 0xFF
+ 
+    # press q to break out of the loop
+    if key == ord("q"):
+        break
+ 
+# cleanup
+cv2.destroyAllWindows()
+stream.stop()
