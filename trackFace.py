@@ -38,7 +38,7 @@ while True:
     (grabbed, frame) = stream.read()
  
     # resize the frames to be smaller and switch to gray scale
-    frame = imutils.resize(frame, width=400)
+    frame = imutils.resize(frame, width=600)
     frame = cv2.flip(frame,0)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
  
@@ -58,9 +58,6 @@ while True:
  
         # draw a fancy border around the faces
         draw_border(overlay, (x1, y1), (x2, y2), (162, 255, 0), 2, 10, 10)
-    faceCenter = ((x1+x2)/2, (y1+y2)/2)
-    faceWidth = (x2-x1)
-    print faceCenter,faceWidth
     
     # make semi-transparent bounding box
     cv2.addWeighted(overlay, alpha, output, 1 - alpha, 0, output)

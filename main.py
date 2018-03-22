@@ -9,10 +9,10 @@ stream = cv2.VideoCapture(0)
 # Face detector
 detector = dlib.get_frontal_face_detector()
 # Screen width for processing
-SCREENWIDTH = 400
+SCREENWIDTH = 600
 # Desired face location and width
 DES_LOCATION = (SCREENWIDTH/2,SCREENWIDTH/2)
-DES_WIDTH = SCREENWIDTH/20
+DES_WIDTH = SCREENWIDTH/6
 tol = 10
 
 # Initialize GPIO Pins for PWM output: roll,pitch,yaw,throttle
@@ -56,37 +56,41 @@ def face():
     else:
         return (0,0),0
 
+# calculate duty cycle for PWM based upon gradient descent
+# for control of desired roll,pitch,yaw,throttle
+# input: err, [-200,200]
+# output: duty cycle, about [40, 60] 
+def quadControl(err):
+    # threshold for linear -> quadratic gradient descent
+    b = 100
+    # descent coefficient
+    k = 0.0005
+    # positive error means we need to decrease, and vice versa
+    negFlag = -1
+    if err<0:
+        err = err*-1
+        negFlag = 1
+    if err<=b:
+        f = 0.5*k*err**2
+    else:
+        f = k*b*err - 0.5*k*b**2
+    return (50 + negFlag*f)
+
+
+    
 # On Start-Up: Takeoff
 # pick it up
 
 while True:
     faceLocation,faceWidth = face()
     if faceWidth != 0:
-        xDiff = faceLocation[0] - DES_LOCATION[0]
-        yDiff = faceLocation[1] - DES_LOCATION[1]
-        widthDiff = faceWidth - DES_WIDTH
-        if xDiff>tol:
-            roll.ChangeDutyCycle(45)
-            print "roll 45"
-        elif xDiff<-tol:
-            roll.ChangeDutyCycle(55)
-            print "roll 55"
-        else:
-            roll.ChangeDutyCycle(50)
-            
-        if yDiff>tol:
-            throttle.ChangeDutyCycle(45)
-        elif yDiff<-tol:
-            throttle.ChangeDutyCycle(55)
-        else:    
-            throttle.ChangeDutyCycle(50)
-            
-        if widthDiff>tol:
-            pitch.ChangeDutyCycle(45)
-        elif widthDiff<-tol:
-            pitch.ChangeDutyCycle(55)
-        else:    
-            pitch.ChangeDutyCycle(50)
+        xErr = faceLocation[0] - DES_LOCATION[0]
+        yErr = -faceLocation[1] + DES_LOCATION[1]
+        widthErr = faceWidth - DES_WIDTH
+        print quadControl(xErr)
+        roll.ChangeDutyCycle(quadControl(xErr))
+        pitch.ChangeDutyCycle(quadControl(widthErr))
+        throttle.ChangeDutyCycle(quadControl(yErr))
     else:
         roll.ChangeDutyCycle(50)
         pitch.ChangeDutyCycle(50)
