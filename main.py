@@ -14,33 +14,33 @@ SCREENWIDTH = 600
 # Desired face location and width
 DES_LOCATION = (SCREENWIDTH/2,SCREENWIDTH/2)
 DES_WIDTH = SCREENWIDTH/6
-tol = 10
 
-# arming
+# armageddon
 global armed
 armed = False
 
-# Radio control values duty cycle, out of 10000
+# duty cycle values, out of 10000
 global LOW, MED, HI
 LOW = 1150
 MED = 1200
 HI = 1250
 
 # Throttle values
-global LOW_THR, MED_THR, HI_THR
+global LOW_THR, MED_THR, HI_THR, T_value
 LOW_THR = 1250
 MED_THR = 1275
 HI_THR = 1300
-
+T_value = 1200
 # Initialize GPIO Pins for PWM output: roll,pitch,yaw,throttle
 pi = pigpio.pi()
 
 # pins numbering
-global R, P, T, Y
+global R, P, T, Y, ARM
 R = 3
 P = 18
 T = 19
 Y = 13
+ARM = 17
 
 # DC frequency
 f = 73.53
@@ -50,17 +50,21 @@ pi.set_PWM_range(R,10000)
 pi.set_PWM_range(P,10000)
 pi.set_PWM_range(T,10000)
 pi.set_PWM_range(Y,10000)
+pi.set_PWM_range(ARM,10000)
+
 # initialize frequency to 73.5 Hz
 pi.set_PWM_frequency(R,f)
 pi.set_PWM_frequency(P,f)
 pi.set_PWM_frequency(T,f)
 pi.set_PWM_frequency(Y,f)
+pi.set_PWM_frequency(ARM,f)
 
 # initialize duty cycles
 pi.set_PWM_dutycycle(R,MED)
 pi.set_PWM_dutycycle(P,MED)
-pi.set_PWM_dutycycle(T,LOW_THR)
+pi.set_PWM_dutycycle(T,LOW_THR-500)
 pi.set_PWM_dutycycle(Y,MED)
+pi.set_PWM_dutycycle(ARM,MED)
 
 def face():
     # read frames from live web cam stream
@@ -106,49 +110,49 @@ def quadControl(err):
 
 def land():
     pi.set_PWM_dutycycle(T,LOW_THR)
-    time.sleep(5)
-    arm()
+    time.sleep(10)
+    arm(False)
 
 # Arm or disarm (AUX1)
-def arm():
+def arm(arming):
     global armed
-    armed = not armed
-    if armed:
-        pi.set_PWM_dutycycle(17,800)
+    if arming:
+        pi.set_PWM_dutycycle(ARM,800)
+        armed = True
     else:
-        pi.set_PWM_dutycycle(17,1200) 
-
+        pi.set_PWM_dutycycle(ARM,1200)
+        armed = False
+arm(False)
 ######################
 def on_press(key):
     try:
-        print('alphanumeric key {0} pressed'.format(
-            key.char))
+ #       print('alphanumeric key {0} pressed'.format(
+ #           key.char))
         bump(key.char)            
     except AttributeError:
-        print 'wrong key'
+        print '\n wrong key, use wdas, p:up l:down; m:arm/disarm'
 
 def on_release(key):
-    print('{0} released'.format(
-        key))
+#    print('{0} released'.format(
+#        key))
     if key == keyboard.Key.esc:
         # Stop listener
         return False
 
 def bump(key):
+    global armed, T_value
     if key == 'p':
-        pi.set_PWM_dutycycle(T,HI_THR)
-        time.sleep(.25)
-        pi.set_PWM_dutycycle(T,MED_THR)
+        T_value = T_value+5
+        pi.set_PWM_dutycycle(T,T_value)
     elif key == 'l':
-        pi.set_PWM_dutycycle(T,LOW_THR)
-        time.sleep(.25)
-        pi.set_PWM_dutycycle(T,MED_THR)
+        T_value = T_value-4
+        pi.set_PWM_dutycycle(T,T_value)
     elif key == 'w':
         pi.set_PWM_dutycycle(P,HI)
         time.sleep(.25)
         pi.set_PWM_dutycycle(P,MED)
     elif key == 's':
-        pi.set_PWM_dutycycle(P,HI)
+        pi.set_PWM_dutycycle(P,LOW)
         time.sleep(.25)
         pi.set_PWM_dutycycle(P,MED)
     elif key == 'a':
@@ -159,10 +163,18 @@ def bump(key):
         pi.set_PWM_dutycycle(R,HI)
         time.sleep(.25)
         pi.set_PWM_dutycycle(R,MED)
+    elif key == 'q':
+        pi.set_PWM_dutycycle(Y,LOW)
+        time.sleep(.25)
+        pi.set_PWM_dutycycle(Y,MED)
+    elif key == 'e':
+        pi.set_PWM_dutycycle(Y,HI)
+        time.sleep(.25)
+        pi.set_PWM_dutycycle(Y,MED)
     elif key == 'm':
-        arm()
+        arm(not armed)
     else:
-        print 'wdas, p:up l:down; m:arm/disarm'
+        print '\n wdas, p:up l:down; m:arm/disarm'
 #########################
 
 ##keythread = threading.Thread(target=keyMonitor)
@@ -178,11 +190,10 @@ with keyboard.Listener(
     listener.join()
 
 loop = True
-# Takeoff
-pi.set_PWM_dutycycle(T,HI_THR)
-time.sleep(2)
-pi.set_PWM_dutycycle(T,MED_THR)
 
+LOW_THR = T_value - 25
+MED_THR = T_value
+HI_THR = T_value + 25
 nofaceCount = 0
 while loop:
     try:
@@ -202,7 +213,7 @@ while loop:
             pi.set_PWM_dutycycle(T,MED_THR)
             print "no face"
             nofaceCount = nofaceCount + 1
-        if nofaceCount>7:
+        if nofaceCount>20:
             land()
             loop = False
         
@@ -211,4 +222,6 @@ while loop:
                 on_press=on_press,
                 on_release=on_release) as listener:
             listener.join()
+            arm(False)
         loop = False
+        
