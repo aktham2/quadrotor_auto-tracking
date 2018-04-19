@@ -16,13 +16,18 @@ DES_LOCATION = (SCREENWIDTH/2,SCREENWIDTH/2)
 DES_WIDTH = SCREENWIDTH/6
 tol = 10
 
-        
+# arming
+global armed
+armed = False
+
 # Radio control values duty cycle, out of 10000
+global LOW, MED, HI
 LOW = 1150
 MED = 1200
 HI = 1250
 
 # Throttle values
+global LOW_THR, MED_THR, HI_THR
 LOW_THR = 1250
 MED_THR = 1275
 HI_THR = 1300
@@ -101,22 +106,24 @@ def quadControl(err):
 
 def land():
     pi.set_PWM_dutycycle(T,LOW_THR)
-    time.sleep(3)
-    arm(False)
+    time.sleep(5)
+    arm()
 
 # Arm or disarm (AUX1)
-def arm(arming):
-    if arming:
+def arm():
+    global armed
+    armed = not armed
+    if armed:
         pi.set_PWM_dutycycle(17,800)
     else:
-        pi.set_PWM_dutycycle(17,1200)
+        pi.set_PWM_dutycycle(17,1200) 
 
 ######################
 def on_press(key):
     try:
         print('alphanumeric key {0} pressed'.format(
             key.char))
-        #bump(key.char)            
+        bump(key.char)            
     except AttributeError:
         print 'wrong key'
 
@@ -128,9 +135,34 @@ def on_release(key):
         return False
 
 def bump(key):
-    if key == 'w':
+    if key == 'p':
         pi.set_PWM_dutycycle(T,HI_THR)
-    
+        time.sleep(.25)
+        pi.set_PWM_dutycycle(T,MED_THR)
+    elif key == 'l':
+        pi.set_PWM_dutycycle(T,LOW_THR)
+        time.sleep(.25)
+        pi.set_PWM_dutycycle(T,MED_THR)
+    elif key == 'w':
+        pi.set_PWM_dutycycle(P,HI)
+        time.sleep(.25)
+        pi.set_PWM_dutycycle(P,MED)
+    elif key == 's':
+        pi.set_PWM_dutycycle(P,HI)
+        time.sleep(.25)
+        pi.set_PWM_dutycycle(P,MED)
+    elif key == 'a':
+        pi.set_PWM_dutycycle(R,LOW)
+        time.sleep(.25)
+        pi.set_PWM_dutycycle(R,MED)
+    elif key == 'd':
+        pi.set_PWM_dutycycle(R,HI)
+        time.sleep(.25)
+        pi.set_PWM_dutycycle(R,MED)
+    elif key == 'm':
+        arm()
+    else:
+        print 'wdas, p:up l:down; m:arm/disarm'
 #########################
 
 ##keythread = threading.Thread(target=keyMonitor)
@@ -139,10 +171,12 @@ def bump(key):
 
 
 
+# Collect events until released
+with keyboard.Listener(
+        on_press=on_press,
+        on_release=on_release) as listener:
+    listener.join()
 
-
-# arm
-arm(True)
 loop = True
 # Takeoff
 pi.set_PWM_dutycycle(T,HI_THR)
@@ -173,5 +207,8 @@ while loop:
             loop = False
         
     except KeyboardInterrupt:
-        arm(False)
+        with keyboard.Listener(
+                on_press=on_press,
+                on_release=on_release) as listener:
+            listener.join()
         loop = False
