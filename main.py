@@ -258,7 +258,7 @@ if __name__ == "__main__":
                 R.setDutyCycle(MED + quadControl(xErr))
                 P.setDutyCycle(MED + quadControl(widthErr))
                 T.setDutyCycle(MED_THR + quadControl(yErr))
-                nofaceCount = 0
+                noFaceCount = 0
                 print("Found face.")
             else:
                 R.setDutyCycle(MED)
