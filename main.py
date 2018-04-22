@@ -5,66 +5,42 @@ import time
 import pigpio
 from pynput import keyboard
 import threading
-# Grab video from your webcam
-stream = cv2.VideoCapture(0)
-# Face detector
-detector = dlib.get_frontal_face_detector()
-# Screen width for processing
-SCREENWIDTH = 600
-# Desired face location and width
-DES_LOCATION = (SCREENWIDTH/2,SCREENWIDTH/2)
-DES_WIDTH = SCREENWIDTH/6
 
-# armageddon
-global armed
-armed = False
+class Pin:
+    def __init__(self,pinNumber,rng,frq,cycle):
+        self.pin = pinNumber
+        self.pwmRange = rng
+        self.pwmFrequency = frq
+        self.pwmDutyCycle = cycle
 
-# duty cycle values, out of 10000
-global LOW, MED, HI
-LOW = 1150
-MED = 1200
-HI = 1250
+        pi.set_PWM_range(pinNumber,rng)
+        pi.set_PWM_frequency(pinNumber,frq)
+        pi.set_PWM_dutycycle(pinNumber,cycle)
 
-# Throttle values
-global LOW_THR, MED_THR, HI_THR, T_value
-LOW_THR = 1250
-MED_THR = 1275
-HI_THR = 1300
-T_value = 1200
-# Initialize GPIO Pins for PWM output: roll,pitch,yaw,throttle
-pi = pigpio.pi()
+    def setDutyCycle(self,newCycle):
+        self.pwmDutyCycle = newCycle
+        pi.set_PWM_dutycycle(self.pin,newCycle)
 
-# pins numbering
-global R, P, T, Y, ARM
-R = 3
-P = 18
-T = 19
-Y = 13
-ARM = 17
+    def getDutyCycle(self):
+        return self.pwmDutyCycle
 
-# DC frequency
-f = 73.53
+    def setFrequency(self,frq):
+        self.pwmFrequency = frq
+        pi.set_PWM_frequency(self.pin,frq)
 
-# set range of duty cycle from 0-100
-pi.set_PWM_range(R,10000)
-pi.set_PWM_range(P,10000)
-pi.set_PWM_range(T,10000)
-pi.set_PWM_range(Y,10000)
-pi.set_PWM_range(ARM,10000)
+    def getFrequency(self):
+        return self.pwmFrequency
 
-# initialize frequency to 73.5 Hz
-pi.set_PWM_frequency(R,f)
-pi.set_PWM_frequency(P,f)
-pi.set_PWM_frequency(T,f)
-pi.set_PWM_frequency(Y,f)
-pi.set_PWM_frequency(ARM,f)
+    def setRange(self,rng):
+        self.pwmRange = rng
+        pi.set_PWM_range(self.pin,rng)
 
-# initialize duty cycles
-pi.set_PWM_dutycycle(R,MED)
-pi.set_PWM_dutycycle(P,MED)
-pi.set_PWM_dutycycle(T,LOW_THR-500)
-pi.set_PWM_dutycycle(Y,MED)
-pi.set_PWM_dutycycle(ARM,MED)
+    def getRange(self):
+        return self.pwmRange
+
+class ArmPin(Pin):
+    def isArmed(self):
+        return self.pwmDutyCycle <= 900
 
 def face():
     # read frames from live web cam stream
@@ -88,6 +64,7 @@ def face():
     else:
         return (0,0),0
 
+
 # calculate duty cycle for PWM based upon gradient descent
 # for control of desired roll,pitch,yaw,throttle
 # input: err, [-200,200]
@@ -108,120 +85,205 @@ def quadControl(err):
         f = k*b*err - 0.5*k*b**2
     return (negFlag*f)
 
-def land():
-    pi.set_PWM_dutycycle(T,LOW_THR)
-    time.sleep(10)
-    arm(False)
 
-# Arm or disarm (AUX1)
-def arm(arming):
-    global armed
-    if arming:
-        pi.set_PWM_dutycycle(ARM,800)
-        armed = True
-    else:
-        pi.set_PWM_dutycycle(ARM,1200)
-        armed = False
-arm(False)
-######################
+
+def land():
+    T.setDutyCycle(LOW_THR)
+    print("Landing...")
+    time.sleep(10)
+
 def on_press(key):
     try:
- #       print('alphanumeric key {0} pressed'.format(
- #           key.char))
         bump(key.char)            
     except AttributeError:
-        print '\n wrong key, use wdas, p:up l:down; m:arm/disarm'
+        print("Arm: M   Track: Y   Pitch: WS   Roll: AD   Yaw: QE   Throttle: PL")
 
 def on_release(key):
-#    print('{0} released'.format(
-#        key))
     if key == keyboard.Key.esc:
         # Stop listener
         return False
 
 def bump(key):
-    global armed, T_value
+    global MED_THR, LOW_THR, HI_THR, trackFace
+
+    # Check if quad is armed before changing values
+    if not ARM.isArmed() and key != 'm':
+        print("Please arm first.")
+        print("Arm: M   Track: Y   Pitch: WS   Roll: AD   Yaw: QE   Throttle: PL")
+        return
+
     if key == 'p':
-        T_value = T_value+5
-        pi.set_PWM_dutycycle(T,T_value)
+        MED_THR = MED_THR + 5
+        T.setDutyCycle(MED_THR)
+        LOW_THR = MED_THR - 25
+        HI_THR = MED_THR + 25
     elif key == 'l':
-        T_value = T_value-4
-        pi.set_PWM_dutycycle(T,T_value)
+        MED_THR = MED_THR - 4
+        T.setDutyCycle(MED_THR)
+        LOW_THR = MED_THR - 25
+        HI_THR = MED_THR + 25
     elif key == 'w':
-        pi.set_PWM_dutycycle(P,HI)
-        time.sleep(.25)
-        pi.set_PWM_dutycycle(P,MED)
+        P.setDutyCycle(HI)
+        time.sleep(0.25)
+        P.setDutyCycle(MED)
     elif key == 's':
-        pi.set_PWM_dutycycle(P,LOW)
-        time.sleep(.25)
-        pi.set_PWM_dutycycle(P,MED)
+        P.setDutyCycle(LOW)
+        time.sleep(0.25)
+        P.setDutyCycle(MED)
     elif key == 'a':
-        pi.set_PWM_dutycycle(R,LOW)
-        time.sleep(.25)
-        pi.set_PWM_dutycycle(R,MED)
+        R.setDutyCycle(LOW)
+        time.sleep(0.25)
+        R.setDutyCycle(MED)
     elif key == 'd':
-        pi.set_PWM_dutycycle(R,HI)
-        time.sleep(.25)
-        pi.set_PWM_dutycycle(R,MED)
+        R.setDutyCycle(HI)
+        time.sleep(0.25)
+        R.setDutyCycle(MED)
     elif key == 'q':
-        pi.set_PWM_dutycycle(Y,LOW)
-        time.sleep(.25)
-        pi.set_PWM_dutycycle(Y,MED)
+        Y.setDutyCycle(LOW)
+        time.sleep(0.25)
+        Y.setDutyCycle(MED)
     elif key == 'e':
-        pi.set_PWM_dutycycle(Y,HI)
-        time.sleep(.25)
-        pi.set_PWM_dutycycle(Y,MED)
+        Y.setDutyCycle(HI)
+        time.sleep(0.25)
+        Y.setDutyCycle(MED)
     elif key == 'm':
-        arm(not armed)
+        toggleArm()
+    elif key == 'y':
+        trackFace = not trackFace
     else:
-        print '\n wdas, p:up l:down; m:arm/disarm'
-#########################
+        print("Arm: M   Track: Y   Pitch: WS   Roll: AD   Yaw: QE   Throttle: PL")
 
-##keythread = threading.Thread(target=keyMonitor)
-##keythread.daemon = True
-##keythread.start()
-
-
-
-# Collect events until released
-with keyboard.Listener(
+def keyListener():
+    # Collect events until released
+    with keyboard.Listener(
         on_press=on_press,
         on_release=on_release) as listener:
-    listener.join()
+        listener.join()
 
-loop = True
+def toggleArm():
+    if ARM.getDutyCycle() <= 900:
+        ARM.setDutyCycle(1200)
+        print("DISARMED")
+    else:
+        ARM.setDutyCycle(800)
+        print("ARMED")
 
-LOW_THR = T_value - 25
-MED_THR = T_value
-HI_THR = T_value + 25
-nofaceCount = 0
-while loop:
-    try:
-        faceLocation,faceWidth = face()
-        if faceWidth != 0:
-            xErr = faceLocation[0] - DES_LOCATION[0]
-            yErr = -faceLocation[1] + DES_LOCATION[1]
-            widthErr = faceWidth - DES_WIDTH
-            print quadControl(xErr)
-            pi.set_PWM_dutycycle(R,MED + quadControl(xErr))
-            pi.set_PWM_dutycycle(P,MED + quadControl(widthErr))
-            pi.set_PWM_dutycycle(T,MED_THR + quadControl(yErr))
-            nofaceCount = 0
-        else:
-            pi.set_PWM_dutycycle(R,MED)
-            pi.set_PWM_dutycycle(P,MED)
-            pi.set_PWM_dutycycle(T,MED_THR)
-            print "no face"
-            nofaceCount = nofaceCount + 1
-        if nofaceCount>20:
-            land()
-            loop = False
-        
-    except KeyboardInterrupt:
-        with keyboard.Listener(
-                on_press=on_press,
-                on_release=on_release) as listener:
-            listener.join()
-            arm(False)
-        loop = False
-        
+def arm(a):
+    if a:
+        ARM.setDutyCycle(800)
+        print("ARMED")
+    else:
+        ARM.setDutyCycle(1200)
+        print("DISARMED")
+
+def printState():
+    print("\n*** Armed: "+str(ARM.isArmed())+" *** Roll: "+str(R.getDutyCycle())+" *** Pitch: "+str(P.getDutyCycle())+" *** Yaw: "+str(Y.getDutyCycle())+" *** Throttle: "+str(T.getDutyCycle())+" ***")
+
+
+# Grab video from your webcam
+stream = cv2.VideoCapture(0)
+# Face detector
+detector = dlib.get_frontal_face_detector()
+# Screen width for processing
+SCREENWIDTH = 600
+# Desired face location and width
+DES_LOCATION = (SCREENWIDTH/2,SCREENWIDTH/2)
+DES_WIDTH = SCREENWIDTH/6
+
+# Default values, disarm quad
+global pwmRange, f, armed
+pwmRange = 10000
+f = 73.53
+armed = False
+
+# duty cycle values, out of 10000
+global LOW, MED, HI
+LOW = 1150
+MED = 1200
+HI = 1250
+
+# Throttle values
+global LOW_THR, MED_THR, HI_THR
+LOW_THR = 1250
+MED_THR = 1275
+HI_THR = 1300
+
+# Initialize GPIO Pins for PWM output: roll,pitch,yaw,throttle
+global pi
+pi = pigpio.pi()
+
+# Pin names
+global R, P, T, Y, ARM
+
+# Face tracking mode
+global trackFace
+trackFace = False
+    
+if __name__ == "__main__":
+    # Create pins
+    Y = Pin(13,pwmRange,f,LOW)
+    R = Pin(3, pwmRange,f,LOW)
+    P = Pin(18,pwmRange,f,LOW)
+    T = Pin(19,pwmRange,f,LOW_THR-500)
+    ARM = ArmPin(17,pwmRange,f,HI)
+
+    # Setup key listener
+    keyThread = threading.Thread(target=keyListener,args=[])
+    keyThread.daemon = True
+    keyThread.start()
+
+    # Wait for user to be ready
+    while not trackFace:
+        try:
+            printState()
+            time.sleep(0.5)
+        except:
+            break
+     
+    # If the quad is not armed, do not enter the loop
+    if not ARM.isArmed():
+        trackFace = False
+
+    
+    # Begin face tracking    
+    noFaceCount = 0
+    while trackFace:
+        try:
+            faceLocation,faceWidth = face()
+            print("")
+            if faceWidth != 0:
+                xErr = faceLocation[0] - DES_LOCATION[0]
+                yErr = -faceLocation[1] + DES_LOCATION[1]
+                widthErr = faceWidth - DES_WIDTH
+                R.setDutyCycle(MED + quadControl(xErr))
+                P.setDutyCycle(MED + quadControl(widthErr))
+                T.setDutyCycle(MED_THR + quadControl(yErr))
+                nofaceCount = 0
+                print("Found face.")
+            else:
+                R.setDutyCycle(MED)
+                P.setDutyCycle(MED)
+                T.setDutyCycle(MED_THR)
+                print("No face detected.")
+                noFaceCount += 1
+            if noFaceCount > 20:
+                trackFace = False
+        except Exception as e:
+            # Exit the loop and land
+            print(e)
+            trackFace = False
+        # Print out RPYT values    
+        printState()
+
+    # Land and disarm on loop exit
+    land()
+    arm(False)
+    
+    
+   
+    
+
+    
+
+    
+    
