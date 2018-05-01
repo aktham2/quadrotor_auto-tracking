@@ -97,7 +97,7 @@ def quadControl(err):
     # threshold for linear -> quadratic gradient descent
     b = 1
     # descent coefficient
-    k = 0.25
+    k = 0.15
     # positive error means we need to decrease, and vice versa
     negFlag = -1
     if err<0:
@@ -214,7 +214,7 @@ stream = cv2.VideoCapture(0)
 SCREENWIDTH = 600
 # Desired face location and width
 DES_LOCATION = (SCREENWIDTH/2,SCREENWIDTH/2)
-DES_RADIUS = 32
+DES_RADIUS = 40
 
 # Default values, disarm quad
 global pwmRange, f, armed
@@ -227,7 +227,7 @@ global LOW, MED, HI, YMED
 LOW = 1150
 MED = 1200
 HI = 1250
-YMED = 1195
+YMED = 1200
 
 # Throttle values
 global LOW_THR, MED_THR, HI_THR
@@ -293,13 +293,13 @@ if __name__ == "__main__":
 ##                else:
 ##                    Y.setDutyCycle(YMED)
                 widthErr = ballRadius - DES_RADIUS
-                R.setDutyCycle(MED + quadControl(xErr)*4)
-                P.setDutyCycle(MED + quadControl(widthErr)*200)
-                T.setDutyCycle(MED_THR - quadControl(yErr)*7)
+                R.setDutyCycle(MED + quadControl(xErr)*1 -70)
+                P.setDutyCycle(MED + quadControl(widthErr)*1)
+                T.setDutyCycle(MED_THR - quadControl(yErr)*1)
                 noBallCount = 0
                 print("Found ball.")
             else:
-                R.setDutyCycle(MED)
+                R.setDutyCycle(MED - 70)
                 P.setDutyCycle(MED)
                 T.setDutyCycle(MED_THR)
                 Y.setDutyCycle(MED)
