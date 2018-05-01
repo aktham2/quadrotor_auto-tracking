@@ -39,6 +39,15 @@ class Pin:
     def getRange(self):
         return self.pwmRange
 
+    def trimUp(self):
+        self.pwmDutyCycle += 4
+        self.setDutyCycle(self.pwmDutyCycle)
+
+    def trimDown(self):
+        self.pwmDutyCycle -= 4
+        self.setDutyCycle(self.pwmDutyCycle)
+        
+
 class ArmPin(Pin):
     def isArmed(self):
         return self.pwmDutyCycle <= 900
@@ -139,37 +148,21 @@ def bump(key):
 ##        return
 
     if key == 'p':
-        MED_THR = MED_THR + 5
-        T.setDutyCycle(MED_THR)
-        LOW_THR = MED_THR - 25
-        HI_THR = MED_THR + 25
+        T.trimUp()
     elif key == 'l':
-        MED_THR = MED_THR - 4
-        T.setDutyCycle(MED_THR)
-        LOW_THR = MED_THR - 25
-        HI_THR = MED_THR + 25
+        T.trimDown()
     elif key == 'w':
-        P.setDutyCycle(HI)
-        time.sleep(0.25)
-        P.setDutyCycle(MED)
+        P.trimUp()
     elif key == 's':
-        P.setDutyCycle(LOW)
-        time.sleep(0.25)
-        P.setDutyCycle(MED)
+        P.trimDown()
     elif key == 'a':
-        RMED -= 4
-        R.setDutyCycle(RMED)
+        R.trimDown()
     elif key == 'd':
-        RMED += 4
-        R.setDutyCycle(RMED)
+        R.trimUp()
     elif key == 'q':
-        Y.setDutyCycle(LOW)
-        time.sleep(0.25)
-        Y.setDutyCycle(YMED)
+        Y.trimDown()
     elif key == 'e':
-        Y.setDutyCycle(HI)
-        time.sleep(0.25)
-        Y.setDutyCycle(YMED)
+       Y.trimUp()
     elif key == 'm':
         toggleArm()
     elif key == 'y':
@@ -214,25 +207,15 @@ SCREENWIDTH = 600
 DES_LOCATION = (SCREENWIDTH/2,SCREENWIDTH/2)
 DES_RADIUS = 40
 
-# Default values, disarm quad
+# Default values for PWM
 global pwmRange, f, armed
 pwmRange = 10000
 f = 73.53
-armed = False
 
-# duty cycle values, out of 10000
-global LOW, MED, HI, YMED, RMED
-LOW = 1150
-MED = 1200
+# HI for arming, LOW_THR for landing
+global HI, LOW_THR
 HI = 1250
-YMED = 1200
-RMED = 1200
-
-# Throttle values
-global LOW_THR, MED_THR, HI_THR
 LOW_THR = 1250
-MED_THR = 1275
-HI_THR = 1300
 
 # Initialize GPIO Pins for PWM output: roll,pitch,yaw,throttle
 global pi
@@ -244,17 +227,13 @@ global R, P, T, Y, ARM
 # Ball tracking mode
 global trackBall
 trackBall = False
-
-# Error range to use yaw control
-global yawThreshold
-yawThreshold = 75
     
 if __name__ == "__main__":
     # Create pins
-    Y = Pin(13,pwmRange,f,YMED)
-    R = Pin(3, pwmRange,f,RMED)
-    P = Pin(18,pwmRange,f,MED)
-    T = Pin(19,pwmRange,f,LOW_THR-500)
+    Y = Pin(13,pwmRange,f,1200)
+    R = Pin(3, pwmRange,f,1200)
+    P = Pin(18,pwmRange,f,1200)
+    T = Pin(19,pwmRange,f,800)
     ARM = ArmPin(17,pwmRange,f,HI)
 
     # Setup key listener
@@ -277,7 +256,12 @@ if __name__ == "__main__":
     
     # Begin ball tracking    
     noBallCount = 0
-    print(trackBall)
+
+    # Get stable values for each input, approximately hover
+    YMED = Y.getDutyCycle()
+    RMED = R.getDutyCycle()
+    PMED = P.getDutyCycle()
+    TMED = T.getDutyCycle()
     while trackBall:
         try:
             ballLocation,ballRadius = ball()
@@ -287,20 +271,16 @@ if __name__ == "__main__":
                 yErr = -ballLocation[1] + DES_LOCATION[1]
                 print("x error: "+str(xErr))
                 print("y error: "+str(yErr))
-##                if abs(xErr) < yawThreshold:
-##                    Y.setDutyCycle(YMED + quadControl(xErr)*(-6))
-##                else:
-##                    Y.setDutyCycle(YMED)
                 widthErr = ballRadius - DES_RADIUS
                 R.setDutyCycle(RMED + quadControl(xErr)*1)
-                P.setDutyCycle(MED + quadControl(widthErr)*1)
-                T.setDutyCycle(MED_THR - quadControl(yErr)*1)
+                P.setDutyCycle(PMED + quadControl(widthErr)*1)
+                T.setDutyCycle(TMED - quadControl(yErr)*1)
                 noBallCount = 0
                 print("Found ball.")
             else:
                 R.setDutyCycle(RMED)
-                P.setDutyCycle(MED)
-                T.setDutyCycle(MED_THR)
+                P.setDutyCycle(PMED)
+                T.setDutyCycle(TMED)
                 Y.setDutyCycle(YMED)
                 print("No ball detected.")
                 noBallCount += 1
