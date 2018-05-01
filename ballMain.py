@@ -130,7 +130,7 @@ def on_release(key):
         return False
 
 def bump(key):
-    global MED_THR, LOW_THR, HI_THR, trackBall
+    global MED_THR, LOW_THR, HI_THR, trackBall, YMED, RMED
 
     # Check if quad is armed before changing values
 ##    if not ARM.isArmed() and key != 'm':
@@ -157,13 +157,11 @@ def bump(key):
         time.sleep(0.25)
         P.setDutyCycle(MED)
     elif key == 'a':
-        R.setDutyCycle(LOW)
-        time.sleep(0.25)
-        R.setDutyCycle(MED)
+        RMED -= 4
+        R.setDutyCycle(RMED)
     elif key == 'd':
-        R.setDutyCycle(HI)
-        time.sleep(0.25)
-        R.setDutyCycle(MED)
+        RMED += 4
+        R.setDutyCycle(RMED)
     elif key == 'q':
         Y.setDutyCycle(LOW)
         time.sleep(0.25)
@@ -223,11 +221,12 @@ f = 73.53
 armed = False
 
 # duty cycle values, out of 10000
-global LOW, MED, HI, YMED
+global LOW, MED, HI, YMED, RMED
 LOW = 1150
 MED = 1200
 HI = 1250
 YMED = 1200
+RMED = 1200
 
 # Throttle values
 global LOW_THR, MED_THR, HI_THR
@@ -253,7 +252,7 @@ yawThreshold = 75
 if __name__ == "__main__":
     # Create pins
     Y = Pin(13,pwmRange,f,YMED)
-    R = Pin(3, pwmRange,f,MED)
+    R = Pin(3, pwmRange,f,RMED)
     P = Pin(18,pwmRange,f,MED)
     T = Pin(19,pwmRange,f,LOW_THR-500)
     ARM = ArmPin(17,pwmRange,f,HI)
@@ -293,16 +292,16 @@ if __name__ == "__main__":
 ##                else:
 ##                    Y.setDutyCycle(YMED)
                 widthErr = ballRadius - DES_RADIUS
-                R.setDutyCycle(MED + quadControl(xErr)*1 -70)
+                R.setDutyCycle(RMED + quadControl(xErr)*1)
                 P.setDutyCycle(MED + quadControl(widthErr)*1)
                 T.setDutyCycle(MED_THR - quadControl(yErr)*1)
                 noBallCount = 0
                 print("Found ball.")
             else:
-                R.setDutyCycle(MED - 70)
+                R.setDutyCycle(RMED)
                 P.setDutyCycle(MED)
                 T.setDutyCycle(MED_THR)
-                Y.setDutyCycle(MED)
+                Y.setDutyCycle(YMED)
                 print("No ball detected.")
                 noBallCount += 1
             if noBallCount > 200:
