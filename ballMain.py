@@ -95,18 +95,20 @@ def ball():
 # output: duty cycle
 def quadControl(err):
     # threshold for linear -> quadratic gradient descent
-    b = 300
+    b = 1
     # descent coefficient
-    k = 0.0007
+    k = 0.25
     # positive error means we need to decrease, and vice versa
     negFlag = -1
     if err<0:
-        err = err*-1
+        err *= -1
         negFlag = 1
     if err<=b:
         f = 0.5*k*err**2
     else:
         f = k*b*err - 0.5*k*b**2
+    if f > 100:
+        f = 100
     return (negFlag*f)
 
 
@@ -165,11 +167,11 @@ def bump(key):
     elif key == 'q':
         Y.setDutyCycle(LOW)
         time.sleep(0.25)
-        Y.setDutyCycle(MED)
+        Y.setDutyCycle(YMED)
     elif key == 'e':
         Y.setDutyCycle(HI)
         time.sleep(0.25)
-        Y.setDutyCycle(MED)
+        Y.setDutyCycle(YMED)
     elif key == 'm':
         toggleArm()
     elif key == 'y':
@@ -212,7 +214,7 @@ stream = cv2.VideoCapture(0)
 SCREENWIDTH = 600
 # Desired face location and width
 DES_LOCATION = (SCREENWIDTH/2,SCREENWIDTH/2)
-DES_RADIUS = 50
+DES_RADIUS = 32
 
 # Default values, disarm quad
 global pwmRange, f, armed
@@ -221,10 +223,11 @@ f = 73.53
 armed = False
 
 # duty cycle values, out of 10000
-global LOW, MED, HI
+global LOW, MED, HI, YMED
 LOW = 1150
 MED = 1200
 HI = 1250
+YMED = 1195
 
 # Throttle values
 global LOW_THR, MED_THR, HI_THR
@@ -242,10 +245,14 @@ global R, P, T, Y, ARM
 # Ball tracking mode
 global trackBall
 trackBall = False
+
+# Error range to use yaw control
+global yawThreshold
+yawThreshold = 75
     
 if __name__ == "__main__":
     # Create pins
-    Y = Pin(13,pwmRange,f,MED)
+    Y = Pin(13,pwmRange,f,YMED)
     R = Pin(3, pwmRange,f,MED)
     P = Pin(18,pwmRange,f,MED)
     T = Pin(19,pwmRange,f,LOW_THR-500)
@@ -279,8 +286,14 @@ if __name__ == "__main__":
             if ballRadius != 0:
                 xErr = ballLocation[0] - DES_LOCATION[0]
                 yErr = -ballLocation[1] + DES_LOCATION[1]
+                print("x error: "+str(xErr))
+                print("y error: "+str(yErr))
+##                if abs(xErr) < yawThreshold:
+##                    Y.setDutyCycle(YMED + quadControl(xErr)*(-6))
+##                else:
+##                    Y.setDutyCycle(YMED)
                 widthErr = ballRadius - DES_RADIUS
-                R.setDutyCycle(MED + quadControl(xErr)*8)
+                R.setDutyCycle(MED + quadControl(xErr)*4)
                 P.setDutyCycle(MED + quadControl(widthErr)*200)
                 T.setDutyCycle(MED_THR - quadControl(yErr)*7)
                 noBallCount = 0
@@ -289,6 +302,7 @@ if __name__ == "__main__":
                 R.setDutyCycle(MED)
                 P.setDutyCycle(MED)
                 T.setDutyCycle(MED_THR)
+                Y.setDutyCycle(MED)
                 print("No ball detected.")
                 noBallCount += 1
             if noBallCount > 200:
