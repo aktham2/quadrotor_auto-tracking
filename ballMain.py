@@ -102,23 +102,32 @@ def ball():
 # for control of desired roll,pitch,yaw,throttle
 # input: err, [-200,200]
 # output: duty cycle
-def quadControl(err):
-    # threshold for linear -> quadratic gradient descent
-    b = 1
-    # descent coefficient
-    k = 0.15
-    # positive error means we need to decrease, and vice versa
-    negFlag = -1
-    if err<0:
-        err *= -1
-        negFlag = 1
-    if err<=b:
-        f = 0.5*k*err**2
-    else:
-        f = k*b*err - 0.5*k*b**2
-    if f > 100:
-        f = 100
-    return (negFlag*f)
+##def quadControl(err):
+##    # threshold for linear -> quadratic gradient descent
+##    b = 1
+##    # descent coefficient
+##    k = 0.15
+##    # positive error means we need to decrease, and vice versa
+##    negFlag = -1
+##    if err<0:
+##        err *= -1
+##        negFlag = 1
+##    if err<=b:
+##        f = 0.5*k*err**2
+##    else:
+##        f = k*b*err - 0.5*k*b**2
+##    if f > 100:
+##        f = 100
+##    return (negFlag*f)
+
+# PD control
+def quadControl(err, oldErr):
+    # gains
+    kP = 0.09
+    kD = 100
+    # PD control
+    output = kP*abs(err) - kD*(abs(oldErr-err))
+    return output*np.sign(-err)
 
 
 
@@ -262,21 +271,29 @@ if __name__ == "__main__":
     RMED = R.getDutyCycle()
     PMED = P.getDutyCycle()
     TMED = T.getDutyCycle()
+
+    ballLocation, ballRadius = ball()
+    xErrOld = ballLocation[0] - DES_LOCATION[0]
+    yErrOld = ballLocation[1] - DES_LOCATION[1]
+    widthErrOld = ballRadius - DES_RADIUS
     while trackBall:
         try:
             ballLocation,ballRadius = ball()
             print("")
             if ballRadius != 0:
                 xErr = ballLocation[0] - DES_LOCATION[0]
-                yErr = -ballLocation[1] + DES_LOCATION[1]
+                yErr = ballLocation[1] - DES_LOCATION[1]
                 print("x error: "+str(xErr))
                 print("y error: "+str(yErr))
                 widthErr = ballRadius - DES_RADIUS
-                R.setDutyCycle(RMED + quadControl(xErr)*1)
-                P.setDutyCycle(PMED + quadControl(widthErr)*1)
-                T.setDutyCycle(TMED - quadControl(yErr)*1)
+                R.setDutyCycle(RMED + quadControl(xErr,xErrOld)*1)
+                P.setDutyCycle(PMED + quadControl(widthErr,widthErrOld)*1)
+                T.setDutyCycle(TMED + quadControl(yErr,yErrOld)*1)
                 noBallCount = 0
                 print("Found ball.")
+                xErrOld = xErr
+                yErrOld = yErr
+                widthErrOld = widthErr
             else:
                 R.setDutyCycle(RMED)
                 P.setDutyCycle(PMED)
