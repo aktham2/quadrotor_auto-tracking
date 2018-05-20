@@ -1,13 +1,13 @@
 # 598_final
 A program for autonomous flight of a quadrotor based on (red) object tracking. Face tracking is supported although this requires a more powerful computer. 
 
-# System: 
+### System: 
 - 250 mm size quadrotor
 - Raspberry Pi 3
 - Raspberry Pi camera
 - Naze32 FC
 
-# Logic:
+### Logic:
 1. Arm quadrotor
 2. Tune roll, pitch, yaw, throttle through the keyboard
 3. Initiate tracking loop
