@@ -14,4 +14,4 @@ Logic:
 6. Calculate error of object location and size (desired is in the center of the frame with specified radius)
 7. Compute PD control from the error for roll, pitch, throttle
 8. Return to Step 4
-If tracking is lost for 100 consecutive loops, landing procedure begins
+9. If tracking is lost for 100 consecutive loops, then start landing procedure (reduced throttle for 5 seconds)
