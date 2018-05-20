@@ -1,9 +1,9 @@
 # 598_final
 System: 
-250 mm long quadrotor
-Raspberry Pi 3
-Raspberry Pi camera
-Naze32 FC
+- 250 mm size quadrotor
+- Raspberry Pi 3
+- Raspberry Pi camera
+- Naze32 FC
 
 Logic:
 1. Arm quadrotor
