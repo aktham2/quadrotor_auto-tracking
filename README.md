@@ -1,5 +1,9 @@
 ## quadrotor_auto-tracking
-A program for autonomous flight of a quadrotor based on (red) object tracking. Face tracking is supported although this requires a more powerful computer. Run ballMain.py to do tracking of a red object, using openCV. Run main.py to track a face using dlib, a useful machine learning python module.
+A program for autonomous flight of a quadrotor based on (red) object tracking. Face tracking is supported although this requires a more powerful computer. 
+
+Run ballMain.py to do tracking of a red object, using openCV. 
+
+Run main.py to track a face using dlib, a useful machine learning python module.
 
 ### System: 
 - 250 mm size quadrotor
