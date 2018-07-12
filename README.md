@@ -1,4 +1,4 @@
-# 598_final
+
 A program for autonomous flight of a quadrotor based on (red) object tracking. Face tracking is supported although this requires a more powerful computer. 
 
 ### System: 
