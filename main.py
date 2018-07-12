@@ -69,22 +69,30 @@ def face():
 # for control of desired roll,pitch,yaw,throttle
 # input: err, [-200,200]
 # output: duty cycle, about [40, 60] 
-def quadControl(err):
-    # threshold for linear -> quadratic gradient descent
-    b = 100
-    # descent coefficient
-    k = 0.0005
-    # positive error means we need to decrease, and vice versa
-    negFlag = -1
-    if err<0:
-        err = err*-1
-        negFlag = 1
-    if err<=b:
-        f = 0.5*k*err**2
-    else:
-        f = k*b*err - 0.5*k*b**2
-    return (negFlag*f)
+# def quadControl(err):
+#     # threshold for linear -> quadratic gradient descent
+#     b = 100
+#     # descent coefficient
+#     k = 0.0005
+#     # positive error means we need to decrease, and vice versa
+#     negFlag = -1
+#     if err<0:
+#         err = err*-1
+#         negFlag = 1
+#     if err<=b:
+#         f = 0.5*k*err**2
+#     else:
+#         f = k*b*err - 0.5*k*b**2
+#     return (negFlag*f)
 
+# Using PD control
+def quadControl(err, oldErr):
+    # gains
+    kP = 0.09
+    kD = 100
+    # PD control
+    output = kP*abs(err) - kD*(abs(oldErr-err))
+    return output*np.sign(-err)
 
 
 def land():
@@ -241,8 +249,8 @@ if __name__ == "__main__":
             break
      
     # If the quad is not armed, do not enter the loop
-    if not ARM.isArmed():
-        trackFace = False
+#     if not ARM.isArmed():
+#         trackFace = False
 
     
     # Begin face tracking    
@@ -255,11 +263,14 @@ if __name__ == "__main__":
                 xErr = faceLocation[0] - DES_LOCATION[0]
                 yErr = -faceLocation[1] + DES_LOCATION[1]
                 widthErr = faceWidth - DES_WIDTH
-                R.setDutyCycle(MED + quadControl(xErr))
-                P.setDutyCycle(MED + quadControl(widthErr))
-                T.setDutyCycle(MED_THR + quadControl(yErr))
+                R.setDutyCycle(MED + quadControl(xErr,xErrOld))
+                P.setDutyCycle(MED + quadControl(widthErr,widthErrOld))
+                T.setDutyCycle(MED_THR + quadControl(yErr,yErrOld))
                 noFaceCount = 0
                 print("Found face.")
+                xErrOld = xErr
+                yErrOld = yErr
+                widthErrOld = widthErr
             else:
                 R.setDutyCycle(MED)
                 P.setDutyCycle(MED)
