@@ -27,8 +27,13 @@ Autonomous control:
 
 ### Keyboard Controls:
 P/L: Throttle up/down
+
 W/S: Pitch forward/back
+
 A/D: Roll left/right
+
 Q/E: Yaw left/right
+
 M: Arm motors
+
 Y: Killswitch
